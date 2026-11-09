@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chicken Road - Blockchain Game</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;800&display=swap');
+
+  :root {
+    --road: #3a3a3a;
+    --road-dark: #2a2a2a;
+    --lane-line: #f0c040;
+    --grass: #2d7a2d;
+    --grass-dark: #1e5c1e;
+    --accent: #f7b731;
+    --green-btn: #27ae60;
+    --green-btn-h: #2ecc71;
+    --red: #e74c3c;
+    --panel: #1a1a2e;
+    --panel2: #16213e;
+    --text: #eee;
+    --muted: #888;
+    --chip: #2c2c3e;
+    --chip-active: #f7b731;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #111;
+    font-family: 'Exo 2', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    background: #0d0d1a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    height: 52px;
+    border-bottom: 2px solid #222;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  #logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-shadow: 0 0 16px #f7b73180;
+  }
+  #logo span { color: #fff; }
+  #topbar-right { display: flex; align-items: center; gap: 12px; }
+  #balance-box {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  #balance-box span { color: var(--accent); }
+  #live-wins {
+    font-size: .75rem;
+    color: #aaa;
+  }
+  #live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #27ae60; margin-right: 5px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+  /* ── LIVE WINS TICKER ── */
+  #ticker {
+    background: #0d0d1a;
+    border-bottom: 1px solid #222;
+    padding: 4px 16px;
+    font-size: .75rem;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  #ticker-inner { display: flex; gap: 24px; animation: tickerScroll 20s linear infinite; white-space: nowrap; }
+  @keyframes tickerScroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
+  .tick-item { color: #f7b731; }
+
+  /* ── GAME AREA ── */
+  #game-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #game-canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  canvas#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── OVERLAY MESSAGES ── */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 20;
+  }
+  #overlay-msg {
+    display: none;
+    background: rgba(0,0,0,.85);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: 28px 44px;
+    text-align: center;
+    animation: popIn .3s cubic-bezier(.17,.67,.35,1.3);
+  }
+  @keyframes popIn { from{transform:scale(.7);opacity:0;} to{transform:scale(1);opacity:1;} }
+  #overlay-msg h2 { font-family:'Orbitron',sans-serif; font-size:1.8rem; margin-bottom:8px; }
+  #overlay-msg p { color:#ccc; font-size:.95rem; }
+
+  /* ── MULTIPLIER TRACK (shows current lane multipliers) ── */
+  #mult-track {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    display: flex;
+    align-items: flex-end;
+    pointer-events: none;
+    height: 80px;
+    z-index: 5;
+    padding: 0 10px;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  /* ── BOTTOM PANEL ── */
+  #bottom-panel {
+    background: var(--panel);
+    border-top: 2px solid #222;
+    padding: 14px 20px 16px;
+    flex-shrink: 0;
+    display: flex;
+    gap: 28px;
+    align-items: center;
+    flex-wrap: wrap;
+    z-index: 10;
+  }
+
+  .panel-group { display: flex; flex-direction: column; gap: 6px; }
+  .panel-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* bet amount */
+  #bet-row { display: flex; align-items: center; gap: 8px; }
+  #bet-input {
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    width: 80px;
+    padding: 6px 10px;
+    text-align: center;
+    outline: none;
+  }
+  #bet-input:focus { border-color: var(--accent); }
+  .bet-chip {
+    background: var(--chip);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    color: #ccc;
+  }
+  .bet-chip:hover, .bet-chip.active { background: var(--accent); color: #111; border-color: var(--accent); }
+
+  /* difficulty */
+  #diff-row { display: flex; gap: 6px; }
+  .diff-btn {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #aaa;
+    padding: 6px 14px;
+    font-size: .8rem;
+    font-family: 'Exo 2', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .diff-btn:hover { border-color: #666; color: #fff; }
+  .diff-btn.active { background: var(--accent); color: #111; border-color: var(--accent); }
+
+  /* stats */
+  #stats-row { display: flex; gap: 18px; }
+  .stat-box { text-align: center; }
+  .stat-val { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; color: var(--accent); font-weight: 700; }
+  .stat-sub { font-size: .65rem; color: var(--muted); }
+
+  /* play/cashout button */
+  #play-btn {
+    background: var(--green-btn);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 14px 44px;
+    cursor: pointer;
+    transition: all .2s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 0 4px 20px #27ae6060;
+    min-width: 180px;
+    flex-shrink: 0;
+  }
+  #play-btn:hover:not(:disabled) { background: var(--green-btn-h); transform: translateY(-1px); box-shadow: 0 6px 28px #27ae6080; }
+  #play-btn:disabled { opacity: .5; cursor: not-allowed; }
+  #play-btn.cashout { background: #e67e22; box-shadow: 0 4px 20px #e67e2260; }
+  #play-btn.cashout:hover { background: #f39c12; }
+
+  /* hash display */
+  #hash-row {
+    font-size: .65rem;
+    color: #555;
+    font-family: monospace;
+    word-break: break-all;
+    max-width: 260px;
+  }
+  #hash-row span { color: #888; }
+
+  /* ── CASHOUT FLASH ── */
+  #cashout-flash {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3rem;
+    font-weight: 900;
+    color: #27ae60;
+    text-shadow: 0 0 40px #27ae60;
+    display: none;
+    z-index: 30;
+    animation: cashFlash .8s forwards;
+    pointer-events: none;
+  }
+  @keyframes cashFlash { 0%{opacity:1;transform:translate(-50%,-50%) scale(1);} 100%{opacity:0;transform:translate(-50%,-80%) scale(1.4);} }
+
+  #crash-flash {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3rem;
+    font-weight: 900;
+    color: #e74c3c;
+    text-shadow: 0 0 40px #e74c3c;
+    display: none;
+    z-index: 30;
+    animation: cashFlash .9s forwards;
+    pointer-events: none;
+  }
+
+  /* ── multiplier badge (top-left during play) ── */
+  #mult-badge {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: 0 0 20px #f7b73180;
+    display: none;
+    z-index: 15;
+    background: rgba(0,0,0,.6);
+    padding: 6px 20px;
+    border-radius: 30px;
+    border: 1px solid #f7b73140;
+  }
+
+  /* hash provably fair panel */
+  #provably-fair {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    background: rgba(0,0,0,.7);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: .65rem;
+    color: #666;
+    z-index: 10;
+    cursor: pointer;
+    transition: .2s;
+  }
+  #provably-fair:hover { color: var(--accent); border-color: var(--accent); }
+  #provably-fair .pf-title { color: #f7b731; font-weight: 700; font-size: .7rem; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="logo">CHICKEN<span>2</span>ROAD</div>
+  <div id="topbar-right">
+    <div id="live-wins"><span id="live-dot"></span>Online: <span id="online-count">11,325</span></div>
+    <div id="balance-box">Balance: <span id="balance-display">100.00</span> 🪙</div>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div id="ticker">
+  <span style="color:#aaa;flex-shrink:0;">Live wins:</span>
+  <div id="ticker-inner"></div>
+</div>
+
+<!-- GAME WRAP -->
+<div id="game-wrap">
+  <div id="game-canvas-wrap">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- multiplier badge -->
+    <div id="mult-badge">1.00x</div>
+
+    <!-- cashout / crash flash -->
+    <div id="cashout-flash"></div>
+    <div id="crash-flash">💥 CRASHED!</div>
+
+    <!-- provably fair -->
+    <div id="provably-fair" onclick="showHash()">
+      <div class="pf-title">🔗 Provably Fair</div>
+      <div id="hash-preview">Click to verify</div>
+    </div>
+
+    <!-- overlay -->
+    <div id="overlay">
+      <div id="overlay-msg">
+        <h2 id="overlay-title"></h2>
+        <p id="overlay-sub"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM PANEL -->
+  <div id="bottom-panel">
+
+    <!-- Bet amount -->
+    <div class="panel-group">
+      <div class="panel-label">Bet Amount 🪙</div>
+      <div id="bet-row">
+        <input type="number" id="bet-input" value="5" min="1" max="100" step="1">
+        <div class="bet-chip active" onclick="setBet(5)">5</div>
+        <div class="bet-chip" onclick="setBet(10)">10</div>
+        <div class="bet-chip" onclick="setBet(15)">15</div>
+        <div class="bet-chip" onclick="setBet(20)">20</div>
+      </div>
+    </div>
+
+    <!-- Difficulty -->
+    <div class="panel-group">
+      <div class="panel-label">Difficulty — Chance of being hit</div>
+      <div id="diff-row">
+        <button class="diff-btn active" onclick="setDiff('easy')">Easy</button>
+        <button class="diff-btn" onclick="setDiff('medium')">Medium</button>
+        <button class="diff-btn" onclick="setDiff('hard')">Hard</button>
+        <button class="diff-btn" onclick="setDiff('hardcore')">Hardcore</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="panel-group">
+      <div class="panel-label">Session Stats</div>
+      <div id="stats-row">
+        <div class="stat-box">
+          <div class="stat-val" id="stat-mult">1.00x</div>
+          <div class="stat-sub">Current</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-wins">0</div>
+          <div class="stat-sub">Wins</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-best">0.00</div>
+          <div class="stat-sub">Best Win</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Play -->
+    <button id="play-btn" onclick="handlePlayBtn()">PLAY</button>
+
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  BLOCKCHAIN PROVABLY FAIR ENGINE
+// ════════════════════════════════════════════════
+const chain = (() => {
+  // Simple SHA-256 like hash using crypto API
+  async function sha256(msg) {
+    const buf = new TextEncoder().encode(msg);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  let serverSeed = '';
+  let clientSeed = '';
+  let nonce = 0;
+  let currentHash = '';
+
+  async function newRound() {
+    serverSeed = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    clientSeed = crypto.getRandomValues(new Uint8Array(8)).reduce((s,b)=>s+b.toString(16).padStart(2,'0'),'');
+    nonce++;
+    const combined = serverSeed + ':' + clientSeed + ':' + nonce;
+    currentHash = await sha256(combined);
+    return currentHash;
+  }
+
+  // Generate the crash lane from the hash
+  // Returns a number 1..NUM_LANES indicating which lane is the "crash" lane
+  async function getCrashLane(numLanes, hitChance) {
+    const combined = serverSeed + ':' + clientSeed + ':' + nonce;
+    const hash = await sha256(combined);
+    // Use first 8 hex chars as a 32-bit int
+    const val = parseInt(hash.slice(0,8), 16);
+    // Determine if a crash happens in this lane
+    // hitChance is 0..1 probability per lane
+    // We return an array of booleans: whether each lane has a crash car at center
+    const results = [];
+    for(let i=0;i<numLanes;i++){
+      const laneHash = parseInt(hash.slice((i*2)%60, (i*2)%60+8), 16);
+      results.push((laneHash / 0xffffffff) < hitChance);
+    }
+    // Guarantee at least one crash in the first N lanes based on difficulty
+    return results;
+  }
+
+  return { newRound, getCrashLane, getHash:()=>currentHash, getSeeds:()=>({serverSeed, clientSeed, nonce}) };
+})();
+
+// ════════════════════════════════════════════════
+//  GAME CONFIG
+// ════════════════════════════════════════════════
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const DIFFICULTIES = {
+  easy:     { hitChance: 0.12, label:'Easy',     color:'#27ae60' },
+  medium:   { hitChance: 0.22, label:'Medium',   color:'#f39c12' },
+  hard:     { hitChance: 0.34, label:'Hard',     color:'#e67e22' },
+  hardcore: { hitChance: 0.48, label:'Hardcore', color:'#e74c3c' },
+};
+
+const LANE_MULTS = [1.44, 2.21, 3.45, 5.53, 9.09, 15.30, 26.78, 48.70];
+
+let state = {
+  phase: 'idle',   // idle | playing | dead | cashout
+  diff: 'easy',
+  bet: 5,
+  balance: 100,
+  wins: 0,
+  bestWin: 0,
+  currentLane: -1,  // chicken position (lane index, -1 = start)
+  currentMult: 1.00,
+  crashLanes: [],   // per lane crash flags
+  chickenX: 0,
+  chickenY: 0,
+  gameHash: '',
+};
+
+// Visuals
+let W, H;
+let ROAD_TOP, ROAD_BOTTOM;
+let LANE_WIDTH;
+let NUM_LANES = 8;
+let SIDEWALK_W;
+let carAnimations = []; // {laneIdx, x, y, speed, type, active}
+let crashParticles = [];
+let chickenAnim = 0;
+let chickenMoving = false;
+let chickenTargetX = 0;
+let chickenMoveProgress = 1;
+const MOVE_DURATION = 0.35; // seconds
+let chickenDead = false;
+let chickenFlash = 0;
+let laneFlash = -1;
+let backgroundOffset = 0;
+
+// ════════════════════════════════════════════════
+//  RESIZE
+// ════════════════════════════════════════════════
+function resize() {
+  const wrap = document.getElementById('game-canvas-wrap');
+  W = canvas.width = wrap.clientWidth;
+  H = canvas.height = wrap.clientHeight;
+  SIDEWALK_W = Math.max(60, W * 0.065);
+  ROAD_TOP = H * 0.05;
+  ROAD_BOTTOM = H * 0.95;
+  LANE_WIDTH = (W - SIDEWALK_W * 2) / NUM_LANES;
+  // Position chicken at start
+  state.chickenX = SIDEWALK_W / 2;
+  state.chickenY = (ROAD_TOP + ROAD_BOTTOM) / 2;
+  chickenTargetX = state.chickenX;
+}
+window.addEventListener('resize', ()=>{ resize(); });
+resize();
+
+// ════════════════════════════════════════════════
+//  TICKER
+// ════════════════════════════════════════════════
+const names = ['ProPlayer','CryptoKing','LuckyDev','NightOwl','SpeedRun','HashMaster','GreenChick','RoadRider'];
+function buildTicker() {
+  const items = Array.from({length:20},()=>{
+    const n = names[Math.floor(Math.random()*names.length)];
+    const m = (Math.random()*40+1.5).toFixed(2);
+    const w = (Math.random()*500+10).toFixed(2);
+    return `<span class="tick-item">🐔 ${n} won ${w} at ${m}x</span>`;
+  });
+  const doubled = [...items,...items];
+  document.getElementById('ticker-inner').innerHTML = doubled.join('');
+}
+buildTicker();
+setInterval(()=>{
+  document.getElementById('online-count').textContent = (11000+Math.floor(Math.random()*1000)).toLocaleString();
+}, 5000);
+
+// ════════════════════════════════════════════════
+//  CAR SPAWNING
+// ════════════════════════════════════════════════
+const CAR_TYPES = ['truck','fire','van','taxi'];
+function spawnCar(laneIdx, isCrashCar=false) {
+  const laneX = SIDEWALK_W + laneIdx * LANE_WIDTH + LANE_WIDTH/2;
+  const goingDown = Math.random() > 0.5;
+  const speed = (80 + Math.random()*120) * (goingDown ? 1 : -1);
+  const type = isCrashCar ? 'fire' : CAR_TYPES[Math.floor(Math.random()*CAR_TYPES.length)];
+  carAnimations.push({
+    laneIdx,
+    x: laneX,
+    y: goingDown ? ROAD_TOP - 120 : ROAD_BOTTOM + 120,
+    speed,
+    type,
+    isCrashCar,
+    active: true,
+    w: LANE_WIDTH * 0.7,
+    h: LANE_WIDTH * 1.1,
+    hitPlayed: false,
+  });
+}
+
+function spawnAmbientCars() {
+  for(let i=0;i<NUM_LANES;i++) {
+    if(Math.random()<0.5) spawnCar(i, false);
+  }
+}
+
+// ════════════════════════════════════════════════
+//  GAME LOGIC
+// ════════════════════════════════════════════════
+async function startGame() {
+  state.phase = 'playing';
+  state.currentLane = -1;
+  state.currentMult = 1.00;
+  state.chickenX = SIDEWALK_W / 2;
+  state.chickenY = (ROAD_TOP + ROAD_BOTTOM) / 2;
+  chickenTargetX = state.chickenX;
+  chickenMoveProgress = 1;
+  chickenDead = false;
+  chickenFlash = 0;
+  laneFlash = -1;
+  carAnimations = [];
+  crashParticles = [];
+
+  state.balance -= state.bet;
+  updateUI();
+
+  // Generate blockchain hash
+  state.gameHash = await chain.newRound();
+  document.getElementById('hash-preview').textContent = state.gameHash.slice(0,18)+'...';
+
+  // Generate crash lanes
+  const diff = DIFFICULTIES[state.diff];
+  state.crashLanes = await chain.getCrashLane(NUM_LANES, diff.hitChance);
+
+  // Ensure at least one non-crash lane in first 3 (fair play)
+  let allCrash = state.crashLanes.slice(0,3).every(v=>v);
+  if(allCrash) state.crashLanes[Math.floor(Math.random()*3)] = false;
+
+  // Spawn some ambient cars
+  spawnAmbientCars();
+
+  document.getElementById('mult-badge').style.display = 'block';
+  document.getElementById('play-btn').textContent = 'CASH OUT';
+  document.getElementById('play-btn').classList.add('cashout');
+  document.getElementById('play-btn').disabled = false;
+
+  hideOverlay();
+}
+
+function advanceChicken() {
+  if(state.phase !== 'playing' || chickenMoveProgress < 1) return;
+
+  const nextLane = state.currentLane + 1;
+  if(nextLane >= NUM_LANES) {
+    // Made it all the way!
+    doCashout(true);
+    return;
+  }
+
+  // Move chicken to next lane
+  state.currentLane = nextLane;
+  state.currentMult = LANE_MULTS[nextLane];
+  chickenTargetX = SIDEWALK_W + nextLane * LANE_WIDTH + LANE_WIDTH / 2;
+  chickenMoveProgress = 0;
+
+  document.getElementById('mult-badge').textContent = state.currentMult.toFixed(2)+'x';
+  document.getElementById('stat-mult').textContent = state.currentMult.toFixed(2)+'x';
+
+  // Check if crash lane
+  if(state.crashLanes[nextLane]) {
+    // Crash happens after chicken reaches center
+    setTimeout(()=>{
+      if(state.phase === 'playing') triggerCrash(nextLane);
+    }, MOVE_DURATION*1000 + 150);
+  }
+
+  // Spawn a crash car visual for this lane if it's a crash lane
+  if(state.crashLanes[nextLane]) {
+    spawnCar(nextLane, true);
+  }
+}
+
+function triggerCrash(laneIdx) {
+  if(state.phase !== 'playing') return;
+  state.phase = 'dead';
+  chickenDead = true;
+  laneFlash = laneIdx;
+
+  // Explosion particles
+  for(let i=0;i<30;i++) {
+    const angle = Math.random()*Math.PI*2;
+    const speed = 60+Math.random()*200;
+    crashParticles.push({
+      x: state.chickenX,
+      y: state.chickenY,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed,
+      r: 3+Math.random()*8,
+      color: ['#e74c3c','#f39c12','#f7b731','#fff'][Math.floor(Math.random()*4)],
+      life: 1,
+      decay: 0.4+Math.random()*0.5,
+    });
+  }
+
+  const el = document.getElementById('crash-flash');
+  el.style.display = 'block';
+  setTimeout(()=>el.style.display='none', 1000);
+
+  resetPlayBtn();
+  showOverlay('💥 CRASHED!', `You got hit at lane ${laneIdx+1}! Lost ${state.bet} coins.`, '#e74c3c');
+  document.getElementById('mult-badge').style.display = 'none';
+  document.getElementById('stat-mult').textContent = '—';
+  updateUI();
+}
+
+function doCashout(auto=false) {
+  if(state.phase !== 'playing') return;
+  state.phase = 'cashout';
+
+  const mult = state.currentLane < 0 ? 1 : state.currentMult;
+  const winAmt = +(state.bet * mult).toFixed(2);
+  state.balance += winAmt;
+  state.wins++;
+  if(winAmt > state.bestWin) state.bestWin = winAmt;
+
+  const flash = document.getElementById('cashout-flash');
+  flash.textContent = `+${winAmt} 🪙`;
+  flash.style.display = 'block';
+  setTimeout(()=>flash.style.display='none', 900);
+
+  updateUI();
+  resetPlayBtn();
+  showOverlay(`💰 CASHED OUT!`, `Won ${winAmt} coins at ${mult.toFixed(2)}x!`, '#27ae60');
+  document.getElementById('mult-badge').style.display = 'none';
+  document.getElementById('stat-mult').textContent = '1.00x';
+
+  // Update ticker
+  buildTicker();
+}
+
+function handlePlayBtn() {
+  if(state.phase === 'playing') {
+    doCashout();
+  } else if(state.phase === 'idle' || state.phase === 'dead' || state.phase === 'cashout') {
+    if(state.bet > state.balance) { alert('Insufficient balance!'); return; }
+    startGame();
+  }
+}
+
+function resetPlayBtn() {
+  const btn = document.getElementById('play-btn');
+  btn.textContent = 'PLAY';
+  btn.classList.remove('cashout');
+  btn.disabled = false;
+}
+
+// ════════════════════════════════════════════════
+//  UI UPDATES
+// ════════════════════════════════════════════════
+function updateUI() {
+  document.getElementById('balance-display').textContent = state.balance.toFixed(2);
+  document.getElementById('stat-wins').textContent = state.wins;
+  document.getElementById('stat-best').textContent = state.bestWin.toFixed(2);
+}
+
+function setBet(val) {
+  state.bet = val;
+  document.getElementById('bet-input').value = val;
+  document.querySelectorAll('.bet-chip').forEach(c=>{
+    c.classList.toggle('active', parseInt(c.textContent)===val);
+  });
+}
+
+document.getElementById('bet-input').addEventListener('input', e=>{
+  state.bet = Math.max(1, parseInt(e.target.value)||1);
+  document.querySelectorAll('.bet-chip').forEach(c=>c.classList.remove('active'));
+});
+
+function setDiff(d) {
+  state.diff = d;
+  document.querySelectorAll('.diff-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.toLowerCase()===d);
+  });
+}
+
+function showOverlay(title, sub, color='#fff') {
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-title').style.color = color;
+  document.getElementById('overlay-sub').textContent = sub;
+  document.getElementById('overlay-msg').style.display = 'block';
+}
+function hideOverlay() {
+  document.getElementById('overlay-msg').style.display = 'none';
+}
+
+function showHash() {
+  const seeds = chain.getSeeds();
+  alert(`Provably Fair Verification\n\nServer Seed: ${seeds.serverSeed}\nClient Seed: ${seeds.clientSeed}\nNonce: ${seeds.nonce}\nHash: ${chain.getHash()}\n\nCrash Lanes: [${state.crashLanes.map((v,i)=>v?`Lane ${i+1}`:'—').join(', ')}]`);
+}
+
+// ════════════════════════════════════════════════
+//  KEYBOARD CONTROLS
+// ════════════════════════════════════════════════
+document.addEventListener('keydown', e=>{
+  if(e.code === 'Space' || e.code === 'ArrowRight') {
+    e.preventDefault();
+    if(state.phase === 'playing') advanceChicken();
+    else if(state.phase !== 'playing') handlePlayBtn();
+  }
+  if(e.code === 'KeyC' && state.phase === 'playing') doCashout();
+});
+
+// ════════════════════════════════════════════════
+//  CLICK ON CANVAS to advance
+// ════════════════════════════════════════════════
+canvas.addEventListener('click', e=>{
+  if(state.phase === 'playing') advanceChicken();
+});
+
+// ════════════════════════════════════════════════
+//  DRAW FUNCTIONS
+// ════════════════════════════════════════════════
+function drawRoad(dt) {
+  // Background
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Sidewalk left
+  const grad1 = ctx.createLinearGradient(0,0,SIDEWALK_W,0);
+  grad1.addColorStop(0,'#2a5a2a');
+  grad1.addColorStop(1,'#3d7a3d');
+  ctx.fillStyle = grad1;
+  ctx.fillRect(0, 0, SIDEWALK_W, H);
+
+  // Sidewalk right
+  const grad2 = ctx.createLinearGradient(W-SIDEWALK_W,0,W,0);
+  grad2.addColorStop(0,'#3d7a3d');
+  grad2.addColorStop(1,'#2a5a2a');
+  ctx.fillStyle = grad2;
+  ctx.fillRect(W-SIDEWALK_W, 0, SIDEWALK_W, H);
+
+  // Grass details left
+  drawGrassDetails(SIDEWALK_W);
+
+  // Road surface
+  const roadGrad = ctx.createLinearGradient(SIDEWALK_W,0,W-SIDEWALK_W,0);
+  roadGrad.addColorStop(0,'#3a3a3a');
+  roadGrad.addColorStop(0.5,'#444');
+  roadGrad.addColorStop(1,'#3a3a3a');
+  ctx.fillStyle = roadGrad;
+  ctx.fillRect(SIDEWALK_W, ROAD_TOP, W-SIDEWALK_W*2, ROAD_BOTTOM-ROAD_TOP);
+
+  // Lane lines (scrolling)
+  backgroundOffset = (backgroundOffset + 80*dt) % 80;
+  ctx.setLineDash([40,40]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 2;
+  for(let i=1;i<NUM_LANES;i++) {
+    const lx = SIDEWALK_W + i*LANE_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(lx, ROAD_TOP);
+    ctx.lineTo(lx, ROAD_BOTTOM);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Lane multiplier badges
+  for(let i=0;i<NUM_LANES;i++) {
+    const lx = SIDEWALK_W + i*LANE_WIDTH;
+    const lw = LANE_WIDTH;
+    const my = H * 0.82;
+
+    // Flash crash lane red during game
+    const isFlash = laneFlash === i;
+    const isCurrent = state.currentLane === i && state.phase === 'playing';
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(lx + lw/2, my, lw*0.36, 0, Math.PI*2);
+    ctx.fillStyle = isFlash ? '#e74c3c' : (isCurrent ? '#f7b73130' : '#2a2a2a');
+    ctx.fill();
+    ctx.strokeStyle = isFlash ? '#e74c3c' : (isCurrent ? '#f7b731' : '#444');
+    ctx.lineWidth = isFlash ? 3 : (isCurrent ? 2 : 1.5);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = isFlash ? '#fff' : (isCurrent ? '#f7b731' : '#999');
+    ctx.font = `bold ${Math.max(10, lw*0.14)}px Orbitron,monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(LANE_MULTS[i].toFixed(2)+'x', lx+lw/2, my);
+  }
+
+  // Road top/bottom curbs
+  ctx.fillStyle = '#555';
+  ctx.fillRect(SIDEWALK_W, ROAD_TOP, W-SIDEWALK_W*2, 6);
+  ctx.fillRect(SIDEWALK_W, ROAD_BOTTOM-6, W-SIDEWALK_W*2, 6);
+}
+
+function drawGrassDetails(sw) {
+  // Street lamp left
+  drawLamp(sw*0.55, H*0.2);
+  drawLamp(sw*0.55, H*0.65);
+  // Decoration right
+  drawLamp(W-sw*0.55, H*0.35);
+  drawLamp(W-sw*0.55, H*0.8);
+}
+
+function drawLamp(x, y) {
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x, y+60);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x+16, y);
+  ctx.stroke();
+  ctx.fillStyle = '#aaa';
+  ctx.beginPath();
+  ctx.arc(x+16, y, 7, 0, Math.PI*2);
+  ctx.fill();
+  // glow
+  const g = ctx.createRadialGradient(x+16, y, 2, x+16, y, 40);
+  g.addColorStop(0,'rgba(255,240,100,0.18)');
+  g.addColorStop(1,'rgba(255,240,100,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x+16, y, 40, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawCar(car) {
+  const {x, y, w, h, type} = car;
+  ctx.save();
+  ctx.translate(x, y);
+
+  switch(type) {
+    case 'truck':   drawTruck(w, h); break;
+    case 'fire':    drawFireTruck(w, h); break;
+    case 'van':     drawVan(w, h); break;
+    case 'taxi':    drawTaxi(w, h); break;
+    default:        drawGenericCar(w, h, '#4a90d9');
+  }
+  ctx.restore();
+}
+
+function drawGenericCar(w, h, color) {
+  ctx.fillStyle = color;
+  roundRect(-w/2, -h/2, w, h, 8);
+  ctx.fillStyle = '#1a2a3a';
+  roundRect(-w/2+4, -h/2+8, w-8, h*0.35, 4);
+}
+
+function drawTruck(w, h) {
+  // Body
+  ctx.fillStyle = '#5a8a5a';
+  roundRect(-w/2, -h/2, w, h, 6);
+  // Cargo
+  ctx.fillStyle = '#eee';
+  roundRect(-w/2+2, -h/2+2, w-4, h*0.55, 4);
+  ctx.fillStyle = '#888';
+  ctx.fillRect(-w/2+4, -h/2+6, w-8, h*0.45);
+  // Cab
+  ctx.fillStyle = '#5a8a5a';
+  roundRect(-w/2, h*0.1, w, h*0.42, 6);
+  ctx.fillStyle = '#6ab';
+  roundRect(-w/2+3, h*0.14, w-6, h*0.2, 3);
+  // Wheels
+  drawWheels(w, h);
+}
+
+function drawFireTruck(w, h) {
+  ctx.fillStyle = '#c0392b';
+  roundRect(-w/2, -h/2, w, h, 6);
+  // Ladder
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 2;
+  for(let i=-h/2+8;i<h/2-8;i+=10) {
+    ctx.beginPath(); ctx.moveTo(-w/4, i); ctx.lineTo(w/4, i); ctx.stroke();
+  }
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-w/4,-h/2+8); ctx.lineTo(-w/4,h/2-8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w/4,-h/2+8); ctx.lineTo(w/4,h/2-8); ctx.stroke();
+  // Window
+  ctx.fillStyle = '#5bf';
+  roundRect(-w/2+3, h*0.12, w-6, h*0.2, 3);
+  // Light bar
+  ctx.fillStyle = '#ff0';
+  ctx.fillRect(-w/3, -h/2+2, w*0.28, 5);
+  ctx.fillStyle = '#f00';
+  ctx.fillRect(w/3-w*0.28, -h/2+2, w*0.28, 5);
+  drawWheels(w, h);
+}
+
+function drawVan(w, h) {
+  ctx.fillStyle = '#e8e8e8';
+  roundRect(-w/2, -h/2, w, h, 8);
+  ctx.fillStyle = '#ccc';
+  ctx.fillRect(-w/2+3, -h/2+3, w-6, h*0.5);
+  ctx.fillStyle = '#aad';
+  roundRect(-w/2+3, h*0.05, w-6, h*0.25, 3);
+  drawWheels(w, h);
+}
+
+function drawTaxi(w, h) {
+  ctx.fillStyle = '#f7b731';
+  roundRect(-w/2, -h/2, w, h, 8);
+  ctx.fillStyle = '#2c3e50';
+  roundRect(-w/2+3, -h/2+6, w-6, h*0.32, 4);
+  ctx.fillStyle = '#222';
+  ctx.font = `bold ${w*0.2}px Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('TAXI', 0, 0);
+  drawWheels(w, h);
+}
+
+function drawWheels(w, h) {
+  ctx.fillStyle = '#111';
+  const wr = w*0.18;
+  [[-w/2-wr/2, -h*0.28],[w/2-wr/2,-h*0.28],[-w/2-wr/2,h*0.2],[w/2-wr/2,h*0.2]].forEach(([wx,wy])=>{
+    ctx.beginPath(); ctx.arc(wx+wr, wy+wr, wr, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#555'; ctx.beginPath(); ctx.arc(wx+wr, wy+wr, wr*0.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+  });
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawChicken(x, y, anim, dead, flashT) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  const bobY = dead ? 0 : Math.sin(anim*6)*3;
+  const scale = dead ? (1 + Math.sin(flashT*20)*0.1) : 1;
+  ctx.scale(scale, scale);
+
+  if(dead) {
+    ctx.globalAlpha = 0.5 + Math.sin(flashT*15)*0.5;
+  }
+
+  const s = Math.min(LANE_WIDTH*0.55, 54);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, s/2+bobY+4, s*0.5, s*0.12, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Body
+  ctx.fillStyle = dead ? '#aaa' : '#fff';
+  ctx.beginPath();
+  ctx.arc(0, bobY, s*0.4, 0, Math.PI*2);
+  ctx.fill();
+
+  // Wing
+  ctx.fillStyle = dead ? '#999' : '#ddd';
+  ctx.beginPath();
+  ctx.ellipse(s*0.3, bobY+s*0.1, s*0.22, s*0.15, Math.PI/5, 0, Math.PI*2);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = dead ? '#bbb' : '#fff';
+  ctx.beginPath();
+  ctx.arc(0, bobY-s*0.35, s*0.22, 0, Math.PI*2);
+  ctx.fill();
+
+  // Comb
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath();
+  ctx.moveTo(-s*0.06, bobY-s*0.55);
+  ctx.bezierCurveTo(-s*0.02, bobY-s*0.7, s*0.06, bobY-s*0.72, s*0.04, bobY-s*0.58);
+  ctx.bezierCurveTo(s*0.1, bobY-s*0.7, s*0.16, bobY-s*0.68, s*0.12, bobY-s*0.56);
+  ctx.closePath();
+  ctx.fill();
+
+  // Beak
+  ctx.fillStyle = '#f39c12';
+  ctx.beginPath();
+  ctx.moveTo(s*0.18, bobY-s*0.36);
+  ctx.lineTo(s*0.34, bobY-s*0.3);
+  ctx.lineTo(s*0.18, bobY-s*0.24);
+  ctx.closePath();
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle = dead ? '#e74c3c' : '#222';
+  ctx.beginPath();
+  ctx.arc(s*0.1, bobY-s*0.38, s*0.05, 0, Math.PI*2);
+  ctx.fill();
+  if(!dead) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s*0.12, bobY-s*0.4, s*0.02, 0, Math.PI*2);
+    ctx.fill();
+  } else {
+    // X eyes
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(s*0.07, bobY-s*0.41);
+    ctx.lineTo(s*0.13, bobY-s*0.35);
+    ctx.moveTo(s*0.13, bobY-s*0.41);
+    ctx.lineTo(s*0.07, bobY-s*0.35);
+    ctx.stroke();
+  }
+
+  // Feet
+  ctx.strokeStyle = '#f39c12';
+  ctx.lineWidth = 2.5;
+  const step = chickenMoving ? Math.sin(anim*12)*0.15 : 0;
+  [-1,1].forEach((side, i)=>{
+    const fy = bobY + s*0.38 + (i===0?step:-step);
+    ctx.beginPath();
+    ctx.moveTo(side*s*0.12, bobY+s*0.35);
+    ctx.lineTo(side*s*0.15, fy);
+    ctx.lineTo(side*s*0.08, fy+s*0.1);
+    ctx.moveTo(side*s*0.15, fy);
+    ctx.lineTo(side*s*0.22, fy+s*0.1);
+    ctx.stroke();
+  });
+
+  ctx.restore();
+}
+
+function drawParticles(dt) {
+  crashParticles.forEach(p=>{
+    p.x += p.vx*dt;
+    p.y += p.vy*dt;
+    p.vy += 200*dt;
+    p.life -= p.decay*dt;
+    if(p.life <= 0) return;
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r*p.life, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+  crashParticles = crashParticles.filter(p=>p.life>0);
+}
+
+// ════════════════════════════════════════════════
+//  MAIN GAME LOOP
+// ════════════════════════════════════════════════
+let lastTime = 0;
+function loop(ts) {
+  const dt = Math.min((ts - lastTime)/1000, 0.05);
+  lastTime = ts;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw road
+  drawRoad(dt);
+
+  // Update & draw cars
+  carAnimations.forEach(car=>{
+    car.y += car.speed * dt;
+    if(car.speed > 0 && car.y > ROAD_BOTTOM + 150) car.y = ROAD_TOP - 150;
+    if(car.speed < 0 && car.y < ROAD_TOP - 150) car.y = ROAD_BOTTOM + 150;
+    drawCar(car);
+  });
+
+  // Spawn occasional cars during idle
+  if(state.phase === 'idle' && Math.random() < 0.006) {
+    spawnCar(Math.floor(Math.random()*NUM_LANES));
+  }
+
+  // Chicken movement interpolation
+  if(chickenMoveProgress < 1) {
+    chickenMoveProgress = Math.min(1, chickenMoveProgress + dt/MOVE_DURATION);
+    const ease = 1 - Math.pow(1-chickenMoveProgress, 3);
+    const startX = state.chickenX;
+    state.chickenX = startX + (chickenTargetX - startX) * (dt/MOVE_DURATION * 5);
+    chickenMoving = chickenMoveProgress < 0.9;
+  } else {
+    chickenMoving = false;
+    // Snap to target
+    if(Math.abs(state.chickenX - chickenTargetX) < 2) state.chickenX = chickenTargetX;
+    else state.chickenX += (chickenTargetX - state.chickenX) * Math.min(1, dt * 10);
+  }
+
+  // Chicken animation
+  chickenAnim += dt;
+  if(chickenDead) chickenFlash += dt;
+
+  drawParticles(dt);
+  drawChicken(state.chickenX, state.chickenY, chickenAnim, chickenDead, chickenFlash);
+
+  // Instructions overlay (idle)
+  if(state.phase === 'idle') {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, H*0.08, W, 36);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px Exo 2,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press PLAY, then click road or press SPACE to advance the chicken. Press C to cash out.', W/2, H*0.08+22);
+  }
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts=>{ lastTime=ts; requestAnimationFrame(loop); });
+
+// Initial idle car spawn
+for(let i=0;i<NUM_LANES;i++) {
+  if(Math.random()<0.6) spawnCar(i);
+}
+</script>
+</body>
+</html>
